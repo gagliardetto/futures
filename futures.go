@@ -34,6 +34,12 @@ type Futures interface {
 	Answer(key interface{}, val interface{}, err error) int
 	Ask(key interface{}) (interface{}, error)
 	AskWithTimeout(key interface{}, timeout time.Duration) (interface{}, error)
+
+	AskWithTimeoutAndPostSubscriptionCallback(
+		key interface{},
+		timeout time.Duration,
+		postSubCallback func(),
+	) (interface{}, error)
 }
 
 // Answer sends an answer to any listener currently listening to the key;
@@ -84,6 +90,29 @@ func (f *simpleFutures) Ask(key interface{}) (interface{}, error) {
 func (f *simpleFutures) AskWithTimeout(key interface{}, timeout time.Duration) (interface{}, error) {
 	select {
 	case t := <-f.subscribe(key):
+		return t.val, t.err
+
+	case <-time.After(timeout):
+		return nil, ErrTimeout
+	}
+}
+
+// AskWithTimeout waits for an answer for the provided key until the timeout passed (which returns ErrTimeout);
+// the callback is called right after the subscription is done; the callback MUST BE NON-BLOCKING.
+func (f *simpleFutures) AskWithTimeoutAndPostSubscriptionCallback(
+	key interface{},
+	timeout time.Duration,
+	postSubCallback func(),
+) (interface{}, error) {
+
+	sub := f.subscribe(key)
+
+	// execute the callback:
+	postSubCallback()
+
+	// wait for answer, or timeout:
+	select {
+	case t := <-sub:
 		return t.val, t.err
 
 	case <-time.After(timeout):

@@ -51,16 +51,16 @@ func (f *simpleFutures) Answer(key interface{}, val interface{}, err error) int 
 		err: err,
 	}
 
-	v, ok := f.futures[key]
-	if !ok {
-		return 0
-	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	listeners, ok := f.futures[key]
+	if !ok || listeners == nil {
+		return 0
+	}
+
 	written := 0
-	for i := range v {
+	for i := range listeners {
 		listener := v[i]
 		select {
 		case listener <- message:
@@ -139,7 +139,8 @@ func (f *simpleFutures) addListener(key interface{}, newListener chan answer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if f.futures[key] == nil {
+	existing, ok := f.futures[key]
+	if !ok || existing == nil {
 		f.futures[key] = make([]chan answer, 0)
 	}
 

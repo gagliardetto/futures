@@ -61,7 +61,7 @@ func (f *simpleFutures) Answer(key interface{}, val interface{}, err error) int 
 
 	written := 0
 	for i := range listeners {
-		listener := v[i]
+		listener := listeners[i]
 		select {
 		case listener <- message:
 			written++
